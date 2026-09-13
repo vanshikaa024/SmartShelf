@@ -1,86 +1,237 @@
-function LowStock({ products }) {
+import { useState } from "react";
 
-  const lowStockProducts = products.filter(
-    (product) => product.stock < 10
+import {
+  AlertTriangle,
+  Package,
+  Plus,
+  CheckCircle,
+} 
+from "lucide-react";
+
+function LowStock({ products, onRestock }) {
+  const [selectedProduct, setSelectedProduct] =
+    useState(null);
+
+  const [quantity, setQuantity] = useState(1);
+
+  const [message, setMessage] = useState("");
+
+  const lowStock = products.filter(
+    (product) => product.stock < product.minStock
   );
 
+  const handleRestock = () => {
+    if (!selectedProduct) return;
+
+    onRestock(
+      selectedProduct.id,
+      Number(quantity)
+    );
+
+    setMessage(
+      `${selectedProduct.name} has been restocked.`
+    );
+
+    setTimeout(() => {
+      setSelectedProduct(null);
+      setMessage("");
+      setQuantity(1);
+    }, 800);
+  };
+
   return (
-    <div className="page">
-
-      <div className="page-header">
-
+    <main className="page">
+      <div className="page-heading">
         <div>
-          <h1>Low Stock Items</h1>
+          <p className="eyebrow">
+            INVENTORY CONTROL
+          </p>
 
-          <p>
-            Products that need your attention
+          <h1>Restocking Required</h1>
+
+          <p className="page-subtitle">
+            Products that have fallen below their
+            minimum inventory level.
           </p>
         </div>
-
       </div>
 
+      <section className="alert-banner">
+        <AlertTriangle size={22} />
 
-      <div className="low-stock-banner">
-        ⚠️ {lowStockProducts.length} products
-        need restocking
+        <div>
+          <strong>
+            {lowStock.length} products need attention
+          </strong>
+
+          <p>
+            Restock these products before they become
+            unavailable for customers.
+          </p>
+        </div>
+      </section>
+
+      <div className="stock-grid">
+        {lowStock.map((product) => {
+          const shortage = Math.max(
+            product.minStock - product.stock,
+            0
+          );
+
+          const percentage =
+            product.minStock === 0
+              ? 100
+              : Math.min(
+                  (product.stock /
+                    product.minStock) *
+                    100,
+                  100
+                );
+
+          return (
+            <div
+              className="stock-card"
+              key={product.id}
+            >
+              <div className="stock-card-top">
+                <div className="product-icon large">
+                  <Package size={21} />
+                </div>
+
+                <span
+                  className={
+                    product.stock === 0
+                      ? "critical-badge"
+                      : "warning-badge"
+                  }
+                >
+                  {product.stock === 0
+                    ? "Critical"
+                    : "Low Stock"}
+                </span>
+              </div>
+
+              <h3>{product.name}</h3>
+
+              <p>{product.category}</p>
+
+              <div className="stock-numbers">
+                <div>
+                  <span>Available</span>
+                  <strong>{product.stock}</strong>
+                </div>
+
+                <div>
+                  <span>Minimum</span>
+                  <strong>{product.minStock}</strong>
+                </div>
+
+                <div>
+                  <span>Shortage</span>
+                  <strong>{shortage}</strong>
+                </div>
+              </div>
+
+              <div className="stock-progress">
+                <div
+                  style={{
+                    width: `${percentage}%`,
+                  }}
+                />
+              </div>
+
+              <button
+                className="primary-btn full-btn"
+                onClick={() =>
+                  setSelectedProduct(product)
+                }
+              >
+                <Plus size={18} />
+                Restock Product
+              </button>
+            </div>
+          );
+        })}
       </div>
 
+      {lowStock.length === 0 && (
+        <div className="empty-state large-empty">
+          <CheckCircle size={38} />
+          <h3>Stock levels look healthy</h3>
+          <p>
+            No products are currently below their
+            minimum stock level.
+          </p>
+        </div>
+      )}
 
-      <div className="table-card">
+      {selectedProduct && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <h2>Restock Product</h2>
 
-        <table>
+            <p>
+              Add units to{" "}
+              <strong>{selectedProduct.name}</strong>.
+            </p>
 
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Category</th>
-              <th>Current Stock</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
+            <div className="restock-summary">
+              <span>Current stock</span>
+              <strong>
+                {selectedProduct.stock}
+              </strong>
+            </div>
 
-          <tbody>
+            <div className="form-group">
+              <label>Quantity to Add</label>
 
-            {lowStockProducts.map((product) => (
+              <input
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(e) =>
+                  setQuantity(e.target.value)
+                }
+              />
+            </div>
 
-              <tr key={product.id}>
+            <div className="restock-summary">
+              <span>New stock</span>
 
-                <td>
-                  <strong>{product.name}</strong>
-                </td>
+              <strong>
+                {selectedProduct.stock +
+                  Number(quantity)}
+              </strong>
+            </div>
 
-                <td>{product.category}</td>
+            {message && (
+              <div className="success-message">
+                <CheckCircle size={18} />
+                {message}
+              </div>
+            )}
 
-                <td className="danger-number">
-                  {product.stock}
-                </td>
+            <div className="modal-actions">
+              <button
+                className="secondary-btn"
+                onClick={() =>
+                  setSelectedProduct(null)
+                }
+              >
+                Cancel
+              </button>
 
-                <td>
-                  <span className="status low">
-                    {product.stock === 0
-                      ? "Out of Stock"
-                      : "Low Stock"}
-                  </span>
-                </td>
-
-                <td>
-                  <button className="restock-btn">
-                    Restock
-                  </button>
-                </td>
-
-              </tr>
-
-            ))}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-    </div>
+              <button
+                className="primary-btn"
+                onClick={handleRestock}
+              >
+                Confirm Restock
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
   );
 }
 

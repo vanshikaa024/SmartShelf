@@ -1,337 +1,316 @@
-import { useState } from "react";
+import {
+  Search,
+  Package,
+  Tag,
+  IndianRupee,
+  Boxes,
+  BoxIcon,
+  BoxesIcon
+} from "lucide-react";
 
-function Products({ products, setProducts }) {
 
-  const [selectedCategory, setSelectedCategory] =
-    useState("All Categories");
+function Products({
+  products = [],
+  searchTerm = ""
+}) {
 
-  const [search, setSearch] = useState("");
+  const filteredProducts =
+    products.filter((product) => {
 
-  const [isModalOpen, setIsModalOpen] =
-    useState(false);
+      const search =
+        searchTerm
+          .toLowerCase()
+          .trim();
 
-  const [newProduct, setNewProduct] = useState({
-    name: "",
-    category: "Electronics",
-    price: "",
-    stock: ""
-  });
+      if (!search) {
+        return true;
+      }
 
-  const filteredProducts = products.filter((product) => {
+      return (
+        String(product.name || "")
+          .toLowerCase()
+          .includes(search) ||
 
-    const matchesSearch =
-      product.name
-        .toLowerCase()
-        .includes(search.toLowerCase());
-
-    const matchesCategory =
-      selectedCategory === "All Categories" ||
-      product.category === selectedCategory;
-
-    return matchesSearch && matchesCategory;
-  });
-
-  const handleDelete = (id) => {
-    setProducts(
-      products.filter((product) => product.id !== id)
-    );
-  };
-
-  const handleAddProduct = (e) => {
-    e.preventDefault();
-
-    const product = {
-      id: Date.now(),
-      name: newProduct.name,
-      category: newProduct.category,
-      price: Number(newProduct.price),
-      stock: Number(newProduct.stock)
-    };
-
-    setProducts([product, ...products]);
-
-    setNewProduct({
-      name: "",
-      category: "Electronics",
-      price: "",
-      stock: ""
+        String(product.category || "")
+          .toLowerCase()
+          .includes(search)
+      );
     });
 
-    setIsModalOpen(false);
-  };
-
-  const handleReset = () => {
-
-    const confirmed =
-      window.confirm("Reset products to original data?");
-
-    if (confirmed) {
-      localStorage.removeItem("smartshelf_products");
-
-      window.location.reload();
-    }
-  };
 
   return (
     <div className="page">
 
+      {/* HEADER */}
+
       <div className="page-header">
 
         <div>
-          <h1>Products ({products.length})</h1>
+
+          <h1>
+            Product Catalogue
+          </h1>
 
           <p>
-            Manage and monitor all inventory items
+            View and monitor every item currently
+            managed in your SmartShelf inventory.
           </p>
-        </div>
-
-        <div className="button-group">
-
-          <button
-            className="cancel-btn"
-            onClick={handleReset}
-          >
-            🔄 Reset
-          </button>
-
-          <button
-            className="add-btn"
-            onClick={() => setIsModalOpen(true)}
-          >
-            + Add Product
-          </button>
 
         </div>
 
       </div>
 
 
-      {/* SEARCH AND FILTER */}
+      {/* SEARCH STATUS */}
 
-      <div className="product-controls">
+      {searchTerm.trim() && (
 
-        <input
-          type="text"
-          placeholder="🔍 Search products..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="product-search-info">
 
-        <select
-          value={selectedCategory}
-          onChange={(e) =>
-            setSelectedCategory(e.target.value)
-          }
-        >
-          <option>All Categories</option>
-          <option>Electronics</option>
-          <option>Stationery</option>
-          <option>Furniture</option>
-          <option>Accessories</option>
-        </select>
+          <Search size={17} />
 
-      </div>
+          <span>
+            Showing results for:
+            <strong>
+              {" "}
+              "{searchTerm}"
+            </strong>
+          </span>
+
+          <span className="result-count">
+            {filteredProducts.length} product
+            {filteredProducts.length !== 1
+              ? "s"
+              : ""}
+          </span>
+
+        </div>
+
+      )}
 
 
-      {/* PRODUCT TABLE */}
+      {/* PRODUCT COUNT */}
 
-      <div className="table-card">
+<div className="products-summary-title">
+  <Package size={24} />
+  <span>{products.length}</span>
+  <span>Products</span>
+</div>
 
-        <table>
 
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Category</th>
-              <th>Price</th>
-              <th>Stock</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
+      {/* PRODUCTS */}
 
-          <tbody>
+      {filteredProducts.length > 0 ? (
 
-            {filteredProducts.map((product) => (
+        <div className="products-grid">
 
-              <tr key={product.id}>
+          {filteredProducts.map(
+            (product) => {
 
-                <td>
-                  <strong>
+              const isLowStock =
+                Number(product.stock || 0) <
+                Number(product.minStock || 0);
+
+
+              const isOutOfStock =
+                Number(product.stock || 0) === 0;
+
+
+              return (
+
+                <div
+                  className="product-card"
+                  key={product.id}
+                >
+
+                  {/* =================================
+                      PRODUCT IMAGE
+                      ================================= */}
+
+                  <div className="product-image-wrapper">
+
+                    {product.image ? (
+
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="product-image"
+
+                        onError={(event) => {
+
+                          event.currentTarget.style.display =
+                            "none";
+
+                          const fallback =
+                            event.currentTarget
+                              .nextElementSibling;
+
+                          if (fallback) {
+                            fallback.style.display =
+                              "flex";
+                          }
+
+                        }}
+                      />
+
+                    ) : null}
+
+
+                    <div
+                      className="product-image-fallback"
+
+                      style={{
+                        display:
+                          product.image
+                            ? "none"
+                            : "flex"
+                      }}
+                    >
+
+                      <Package size={42} />
+
+                    </div>
+
+                  </div>
+
+
+                  {/* PRODUCT TOP */}
+
+                  <div className="product-card-top">
+
+                    <div className="product-icon">
+
+                      <Package size={22} />
+
+                    </div>
+
+
+                    <span
+                      className={`stock-badge ${
+                        isOutOfStock
+                          ? "out"
+                          : isLowStock
+                          ? "low"
+                          : "good"
+                      }`}
+                    >
+
+                      {isOutOfStock
+                        ? "Out of Stock"
+                        : isLowStock
+                        ? "Low Stock"
+                        : "In Stock"}
+
+                    </span>
+
+                  </div>
+
+
+                  {/* PRODUCT NAME */}
+
+                  <h3>
                     {product.name}
-                  </strong>
-                </td>
-
-                <td>{product.category}</td>
-
-                <td>₹{product.price.toLocaleString()}</td>
-
-                <td>{product.stock}</td>
-
-                <td>
-
-                  <span
-                    className={
-                      product.stock === 0
-                        ? "status out"
-                        : product.stock < 10
-                        ? "status low"
-                        : "status good"
-                    }
-                  >
-                    {product.stock === 0
-                      ? "Out of Stock"
-                      : product.stock < 10
-                      ? "Low Stock"
-                      : "In Stock"}
-                  </span>
-
-                </td>
-
-                <td>
-
-                  <button
-                    className="delete-btn"
-                    onClick={() =>
-                      handleDelete(product.id)
-                    }
-                  >
-                    🗑️
-                  </button>
-
-                </td>
-
-              </tr>
-
-            ))}
-
-          </tbody>
-
-        </table>
-
-      </div>
+                  </h3>
 
 
-      {/* ADD PRODUCT MODAL */}
+                  {/* CATEGORY */}
 
-      {isModalOpen && (
+                  <div className="product-category">
 
-        <div className="modal-overlay">
+                    <Tag size={15} />
 
-          <div className="modal-card">
+                    <span>
+                      {product.category}
+                    </span>
 
-            <h2>Add New Product</h2>
-
-            <form onSubmit={handleAddProduct}>
-
-              <div className="form-group">
-
-                <label>Product Name</label>
-
-                <input
-                  required
-                  type="text"
-                  placeholder="Enter product name"
-                  value={newProduct.name}
-                  onChange={(e) =>
-                    setNewProduct({
-                      ...newProduct,
-                      name: e.target.value
-                    })
-                  }
-                />
-
-              </div>
+                  </div>
 
 
-              <div className="form-group">
+                  {/* PRICE */}
 
-                <label>Category</label>
+                  <div className="product-price">
+                        
+                    <IndianRupee
+                      size={17}
+                    />
 
-                <select
-                  value={newProduct.category}
-                  onChange={(e) =>
-                    setNewProduct({
-                      ...newProduct,
-                      category: e.target.value
-                    })
-                  }
-                >
-                  <option>Electronics</option>
-                  <option>Stationery</option>
-                  <option>Furniture</option>
-                  <option>Accessories</option>
-                </select>
+                    <strong>
 
-              </div>
+                      {Number(
+                        product.price || 0
+                      ).toLocaleString(
+                        "en-IN"
+                      )}
 
+                    </strong>
 
-              <div className="form-group">
-
-                <label>Price (₹)</label>
-
-                <input
-                  required
-                  type="number"
-                  min="0"
-                  placeholder="Enter price"
-                  value={newProduct.price}
-                  onChange={(e) =>
-                    setNewProduct({
-                      ...newProduct,
-                      price: e.target.value
-                    })
-                  }
-                />
-
-              </div>
+                  </div>
 
 
-              <div className="form-group">
+                  {/* STOCK */}
 
-                <label>Stock Quantity</label>
+                  <div className="product-stock-row">
 
-                <input
-                  required
-                  type="number"
-                  min="0"
-                  placeholder="Enter quantity"
-                  value={newProduct.stock}
-                  onChange={(e) =>
-                    setNewProduct({
-                      ...newProduct,
-                      stock: e.target.value
-                    })
-                  }
-                />
+                    <div>
+                      <div className="Box-logo">
+                      <BoxesIcon size={20} />
+                      </div>
+                      <span>
+                           Current Stock :  <strong>
+                      {product.stock}
+                    </strong>
+                      </span>
 
-              </div>
+                    </div>
+
+                    
+
+                  </div>
 
 
-              <div className="modal-actions">
+                 
 
-                <button
-                  type="button"
-                  className="cancel-btn"
-                  onClick={() =>
-                    setIsModalOpen(false)
-                  }
-                >
-                  Cancel
-                </button>
 
-                <button
-                  type="submit"
-                  className="add-btn"
-                >
-                  Save Product
-                </button>
+                  {/* SOLD */}
 
-              </div>
+                  <div className="product-detail-row">
 
-            </form>
+                    <span>
+                      Sold in 30 days :   <strong>
+                      {product.sold30}
+                    </strong>
+                    </span>
 
-          </div>
+                  
+
+                  </div>
+
+
+                 
+
+                </div>
+
+              );
+
+            }
+          )}
+
+        </div>
+
+      ) : (
+
+        <div className="no-products">
+
+          <Search size={36} />
+
+          <h2>
+            No matching products
+          </h2>
+
+          <p>
+            We couldn't find a product matching
+            "{searchTerm}".
+          </p>
 
         </div>
 
@@ -340,5 +319,6 @@ function Products({ products, setProducts }) {
     </div>
   );
 }
+
 
 export default Products;

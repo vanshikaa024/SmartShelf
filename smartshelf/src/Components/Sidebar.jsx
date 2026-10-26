@@ -27,7 +27,7 @@ function Sidebar({
     },
     {
       path: "/products",
-      label: "Product Catalogue",
+      label: "Products",
       icon: Package,
     },
     {
@@ -71,10 +71,6 @@ function Sidebar({
             </span>
           </div>
         )}
-      </div>
-
-      <div className="sidebar-section-title">
-        MAIN MENU
       </div>
 
       <nav className="sidebar-nav">

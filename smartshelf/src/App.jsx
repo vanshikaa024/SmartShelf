@@ -39,7 +39,7 @@ const productImages = {
     "https://images.unsplash.com/photo-1531346878377-a5be20888e57?auto=format&fit=crop&w=900&q=85",
 
   "USB-C Cable":
-    "https://images.unsplash.com/photo-1625842268584-8f3296236761?auto=format&fit=crop&w=900&q=85",
+    "https://tse3.mm.bing.net/th/id/OIP.xGSBuzqLQUhYFZB5sentCQHaE8?r=0&rs=1&pid=ImgDetMain&o=7&rm=3",
 
   "Ergonomic Desk Chair":
     "https://images.unsplash.com/photo-1580480055273-228ff5388ef8?auto=format&fit=crop&w=900&q=85",
@@ -230,6 +230,17 @@ const defaultProducts = [
 
 
 /* =====================================================
+   PRODUCT DATA VERSION
+
+   Forces the app to discard an older product dataset once
+   when the product definitions are updated. This prevents
+   localhost from continuing to display stale products.
+   ===================================================== */
+const PRODUCT_DATA_VERSION = "2026-09-13-v1";
+const PRODUCT_DATA_VERSION_KEY = "smartshelf_products_version";
+
+
+/* =====================================================
    SAFE LOCAL STORAGE READER
    ===================================================== */
 
@@ -398,6 +409,23 @@ function SmartShelfApp() {
   const navigate =
     useNavigate();
 
+  /* ===================================================
+     APPEARANCE: LIGHT / DARK MODE
+     =================================================== */
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = localStorage.getItem("smartshelf_theme");
+    return savedTheme === "dark" ? "dark" : "light";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("smartshelf_theme", theme);
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((currentTheme) => currentTheme === "light" ? "dark" : "light");
+  };
+
 
   /* ===================================================
      LOGIN
@@ -433,97 +461,75 @@ function SmartShelfApp() {
           null
         );
 
+      const savedVersion =
+        localStorage.getItem(
+          PRODUCT_DATA_VERSION_KEY
+        );
 
+      /*
+        IMPORTANT:
+        If the stored product data belongs to an older
+        version, load the current defaultProducts.
+        This removes the old product list that was causing
+        localhost and the updated app to show different data.
+      */
       if (
+        savedVersion !== PRODUCT_DATA_VERSION ||
         !Array.isArray(saved) ||
         saved.length === 0
       ) {
+        localStorage.setItem(
+          PRODUCT_DATA_VERSION_KEY,
+          PRODUCT_DATA_VERSION
+        );
 
         return defaultProducts;
-
       }
 
-
       /*
-        Merge saved products with defaults.
-
-        This is important because your old
-        localStorage products may not contain
-        image URLs.
+        Keep the user's saved stock/price values, but always
+        match records by name first and always use the correct
+        image for the product name.
       */
+      return saved.map((product, index) => {
+        const matchingDefault =
+          defaultProducts.find(
+            (item) => item.name === product.name
+          ) ||
+          defaultProducts.find(
+            (item) => item.id === product.id
+          ) ||
+          defaultProducts[index % defaultProducts.length];
 
-      return saved.map(
-        (product, index) => {
-
-          const matchingDefault =
-            defaultProducts.find(
-              (item) =>
-                item.id ===
-                  product.id ||
-                item.name ===
-                  product.name
-            ) ||
-            defaultProducts[
-              index %
-                defaultProducts.length
-            ];
-
-
-          return {
-
-            ...matchingDefault,
-
-            ...product,
-
-            price:
-              Number(
-                product.price ??
-                  matchingDefault.price ??
-                  0
-              ),
-
-            costPrice:
-              Number(
-                product.costPrice ??
-                  matchingDefault.costPrice ??
-                  0
-              ),
-
-            stock:
-              Number(
-                product.stock ??
-                  0
-              ),
-
-            minStock:
-              Number(
-                product.minStock ??
-                  matchingDefault.minStock ??
-                  0
-              ),
-
-            sold30:
-              Number(
-                product.sold30 ??
-                  matchingDefault.sold30 ??
-                  0
-              ),
-
-            condition:
-              product.condition ||
-              matchingDefault.condition ||
-              "Good",
-
-            image:
-              product.image ||
-              matchingDefault.image ||
-              "",
-          };
-        }
-      );
+        return {
+          ...matchingDefault,
+          ...product,
+          price: Number(
+            product.price ?? matchingDefault?.price ?? 0
+          ),
+          costPrice: Number(
+            product.costPrice ?? matchingDefault?.costPrice ?? 0
+          ),
+          stock: Number(product.stock ?? 0),
+          minStock: Number(
+            product.minStock ?? matchingDefault?.minStock ?? 0
+          ),
+          sold30: Number(
+            product.sold30 ?? matchingDefault?.sold30 ?? 0
+          ),
+          condition:
+            product.condition ||
+            matchingDefault?.condition ||
+            "Good",
+          image:
+            productImages[product.name] ||
+            matchingDefault?.image ||
+            product.image ||
+            "",
+        };
+      });
 
     });
-
 
   /* ===================================================
      ORDERS
@@ -613,6 +619,11 @@ function SmartShelfApp() {
     localStorage.setItem(
       "smartshelf_products",
       JSON.stringify(products)
+    );
+
+    localStorage.setItem(
+      PRODUCT_DATA_VERSION_KEY,
+      PRODUCT_DATA_VERSION
     );
 
   }, [products]);
@@ -1260,216 +1271,240 @@ function SmartShelfApp() {
     };
 
 
-  /* ===================================================
-     INVENTORY REPORT
-     =================================================== */
+ /* ===================================================
+   INVENTORY REPORT
+   =================================================== */
 
-  const generateReport =
-    () => {
+const generateReport = () => {
+  /* ---------------------------------------------
+     INVENTORY SUMMARY
+     --------------------------------------------- */
 
-      const totalStock =
-        products.reduce(
-          (
-            total,
-            product
-          ) =>
-            total +
-            Number(
-              product.stock ||
-                0
-            ),
+  const totalStock = products.reduce(
+    (total, product) =>
+      total + Number(product.stock || 0),
+    0
+  );
 
-          0
-        );
+  const totalSold = products.reduce(
+    (total, product) =>
+      total + Number(product.sold30 || 0),
+    0
+  );
 
+  const inventoryValue = products.reduce(
+    (total, product) =>
+      total +
+      Number(product.costPrice || 0) *
+        Number(product.stock || 0),
+    0
+  );
 
-      const totalSold =
-        products.reduce(
-          (
-            total,
-            product
-          ) =>
-            total +
-            Number(
-              product.sold30 ||
-                0
-            ),
+  const revenue = orders.reduce(
+    (total, order) =>
+      total + Number(order.total || 0),
+    0
+  );
 
-          0
-        );
-
-
-      const inventoryValue =
-        products.reduce(
-          (
-            total,
-            product
-          ) =>
-            total +
-
-            Number(
-              product.costPrice ||
-                0
-            ) *
-
-            Number(
-              product.stock ||
-                0
-            ),
-
-          0
-        );
+  const profit = orders.reduce(
+    (total, order) =>
+      total + Number(order.profit || 0),
+    0
+  );
 
 
-      const revenue =
-        orders.reduce(
-          (
-            total,
-            order
-          ) =>
-            total +
-            Number(
-              order.total ||
-                0
-            ),
+  /* ---------------------------------------------
+     LOW STOCK PRODUCTS
 
-          0
-        );
+     1–5 units = Low Stock
+     --------------------------------------------- */
+
+  const lowStock = products.filter((product) => {
+    const stock = Number(product.stock || 0);
+
+    return stock >= 1 && stock <= 5;
+  });
 
 
-      const profit =
-        orders.reduce(
-          (
-            total,
-            order
-          ) =>
-            total +
-            Number(
-              order.profit ||
-                0
-            ),
+  /* ---------------------------------------------
+     OUT OF STOCK PRODUCTS
+     --------------------------------------------- */
 
-          0
-        );
+  const outOfStock = products.filter(
+    (product) =>
+      Number(product.stock || 0) === 0
+  );
 
 
-      const lowStock =
-        products.filter(
-          (product) =>
-            Number(
-              product.stock ||
-                0
-            ) <
-            Number(
-              product.minStock ||
-                0
-            )
-        );
+  /* ---------------------------------------------
+     DATE
+     --------------------------------------------- */
+
+  const generatedDate = new Date().toLocaleString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }
+  );
 
 
-      const report = [
+  /* ---------------------------------------------
+     FORMAT PRODUCT NAME COLUMN
+     --------------------------------------------- */
 
-        "SMARTSHELF INVENTORY REPORT",
-
-        "========================================",
-
-        `Generated: ${new Date().toLocaleString(
-          "en-IN"
-        )}`,
-
-        "",
-
-        `Total Products: ${products.length}`,
-
-        `Stock Units: ${totalStock}`,
-
-        `Units Sold (30 Days): ${totalSold}`,
-
-        `Inventory Value: ₹${inventoryValue.toLocaleString(
-          "en-IN"
-        )}`,
-
-        `Total Orders: ${orders.length}`,
-
-        `Sales Revenue: ₹${revenue.toLocaleString(
-          "en-IN"
-        )}`,
-
-        `Gross Profit: ₹${profit.toLocaleString(
-          "en-IN"
-        )}`,
-
-        `Restocking Required: ${lowStock.length}`,
-
-        "",
-
-        "LOW STOCK PRODUCTS",
-
-        "----------------------------------------",
-
-        ...lowStock.map(
-          (product) =>
-            `${product.name}: ${product.stock} units left / minimum ${product.minStock}`
-        ),
-
-      ].join("\n");
+  const productColumnWidth = Math.max(
+    30,
+    ...lowStock.map(
+      (product) =>
+        String(product.name || "").length
+    )
+  );
 
 
-      const blob =
-        new Blob(
-          [report],
-          {
-            type:
-              "text/plain;charset=utf-8",
-          }
-        );
+  /* ---------------------------------------------
+     LOW STOCK TABLE
+     --------------------------------------------- */
+
+  const lowStockRows = lowStock.map(
+    (product) => {
+      const name = String(
+        product.name || ""
+      ).padEnd(productColumnWidth);
+
+      const stock = String(
+        product.stock || 0
+      ).padStart(7);
+
+      const minimum = String(
+        product.minStock || 0
+      ).padStart(8);
+
+      return `${name} ${stock} ${minimum}`;
+    }
+  );
 
 
-      const url =
-        URL.createObjectURL(
-          blob
-        );
+  /* ---------------------------------------------
+     OUT OF STOCK TABLE
+     --------------------------------------------- */
+
+  const outOfStockRows = outOfStock.map(
+    (product) =>
+      `${String(product.name || "").padEnd(
+        productColumnWidth
+      )} ${String(0).padStart(7)} ${String(
+        product.minStock || 0
+      ).padStart(8)}`
+  );
 
 
-      const link =
-        document.createElement(
-          "a"
-        );
+  /* ---------------------------------------------
+     REPORT CONTENT
+     --------------------------------------------- */
+
+  const report = [
+    "SMARTSHELF INVENTORY REPORT",
+    "================================================",
+    "",
+    `Generated: ${generatedDate}`,
+    "",
+    "",
+    "INVENTORY SUMMARY",
+    "------------------------------------------------",
+    `Total Products              : ${products.length}`,
+    `Stock Units                 : ${totalStock}`,
+    `Units Sold (30 Days)        : ${totalSold}`,
+    `Inventory Value             : ₹${inventoryValue.toLocaleString(
+      "en-IN"
+    )}`,
+    `Total Orders                : ${orders.length}`,
+    `Sales Revenue               : ₹${revenue.toLocaleString(
+      "en-IN"
+    )}`,
+    `Gross Profit                : ₹${profit.toLocaleString(
+      "en-IN"
+    )}`,
+    `Restocking Required         : ${lowStock.length}`,
+    `Out Of Stock                : ${outOfStock.length}`,
+    "",
+    "",
+    "LOW STOCK PRODUCTS",
+    "------------------------------------------------",
+    `${"Product".padEnd(
+      productColumnWidth
+    )} ${"Stock".padStart(7)} ${"Minimum".padStart(
+      8
+    )}`,
+    "------------------------------------------------",
+    ...(lowStockRows.length > 0
+      ? lowStockRows
+      : ["No low stock products."]),
+    "",
+    "",
+    "OUT OF STOCK PRODUCTS",
+    "------------------------------------------------",
+    `${"Product".padEnd(
+      productColumnWidth
+    )} ${"Stock".padStart(7)} ${"Minimum".padStart(
+      8
+    )}`,
+    "------------------------------------------------",
+    ...(outOfStockRows.length > 0
+      ? outOfStockRows
+      : ["No out of stock products."]),
+    "",
+    "",
+    "================================================",
+    "END OF REPORT",
+    "================================================",
+  ].join("\n");
 
 
-      link.href =
-        url;
+  /* ---------------------------------------------
+     DOWNLOAD REPORT
+     --------------------------------------------- */
+
+  const blob = new Blob(
+    [report],
+    {
+      type: "text/plain;charset=utf-8",
+    }
+  );
+
+  const url =
+    URL.createObjectURL(blob);
+
+  const link =
+    document.createElement("a");
+
+  link.href = url;
+
+  link.download =
+    "SmartShelf_Inventory_Report.txt";
+
+  document.body.appendChild(link);
+
+  link.click();
+
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
 
 
-      link.download =
-        "SmartShelf_Inventory_Report.txt";
+  /* ---------------------------------------------
+     REPORT ACTIVITY
+     --------------------------------------------- */
 
-
-      document.body.appendChild(
-        link
-      );
-
-
-      link.click();
-
-
-      document.body.removeChild(
-        link
-      );
-
-
-      URL.revokeObjectURL(
-        url
-      );
-
-
-      addActivity(
-        "Inventory report was generated.",
-        "info"
-      );
-
-    };
-
+  addActivity(
+    "Inventory report was generated.",
+    "info"
+  );
+};
 
   /* ===================================================
      LOGGED-OUT ROUTING
@@ -1479,6 +1514,7 @@ function SmartShelfApp() {
 
     return (
 
+      <div className="app-layout" data-theme={theme}>
       <Routes>
 
         <Route
@@ -1509,6 +1545,7 @@ function SmartShelfApp() {
         />
 
       </Routes>
+      </div>
 
     );
 
@@ -1521,7 +1558,7 @@ function SmartShelfApp() {
 
   return (
 
-    <div className="app-layout">
+    <div className="app-layout" data-theme={theme}>
 
 
       {/* =============================================
@@ -1588,6 +1625,10 @@ function SmartShelfApp() {
           setSearchTerm={
             setSearchTerm
           }
+
+          theme={theme}
+
+          onToggleTheme={toggleTheme}
         />
 
 
